@@ -94,6 +94,7 @@ export const getNotes = async (token: string = '', raw: boolean = false) => {
 export const searchNotes = async (
 	token: string = '',
 	query: string | null = null,
+	tag: string | null = null,
 	viewOption: string | null = null,
 	permission: string | null = null,
 	sortKey: string | null = null,
@@ -104,6 +105,10 @@ export const searchNotes = async (
 
 	if (query !== null) {
 		searchParams.append('query', query);
+	}
+
+	if (tag !== null) {
+		searchParams.append('tag', tag);
 	}
 
 	if (viewOption !== null) {
@@ -123,6 +128,37 @@ export const searchNotes = async (
 	}
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/notes/search?${searchParams.toString()}`, {
+		method: 'GET',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		}
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.then((json) => {
+			return json;
+		})
+		.catch((err) => {
+			error = err.detail;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const getNotesTags = async (token: string = '') => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/notes/tags`, {
 		method: 'GET',
 		headers: {
 			Accept: 'application/json',

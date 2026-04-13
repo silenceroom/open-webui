@@ -29,6 +29,7 @@ class Note(Base):
     title = Column(Text)
     data = Column(JSON, nullable=True)
     meta = Column(JSON, nullable=True)
+    tags = Column(JSON, nullable=True)
 
     created_at = Column(BigInteger)
     updated_at = Column(BigInteger)
@@ -43,6 +44,7 @@ class NoteModel(BaseModel):
     title: str
     data: Optional[dict] = None
     meta: Optional[dict] = None
+    tags: Optional[list[str]] = None
 
     access_grants: list[AccessGrantModel] = Field(default_factory=list)
 
@@ -59,6 +61,7 @@ class NoteForm(BaseModel):
     title: str
     data: Optional[dict] = None
     meta: Optional[dict] = None
+    tags: Optional[list[str]] = None
     access_grants: Optional[list[dict]] = None
 
 
@@ -66,6 +69,7 @@ class NoteUpdateForm(BaseModel):
     title: Optional[str] = None
     data: Optional[dict] = None
     meta: Optional[dict] = None
+    tags: Optional[list[str]] = None
     access_grants: Optional[list[dict]] = None
 
 
@@ -177,6 +181,21 @@ class NoteTable:
                                 ).ilike(f'%{word}%'),
                             )
                         )
+
+                tag = filter.get('tag')
+                if tag:
+                    # Filter by tag using LIKE pattern matching on JSON array
+                    if db.bind.dialect.name == 'sqlite':
+                        if tag.isascii():
+                            tags_text = func.lower(cast(Note.tags, Text))
+                            pattern = f'%{json.dumps(tag.lower())}%'
+                        else:
+                            tags_text = cast(Note.tags, Text)
+                            pattern = f'%{json.dumps(tag)}%'
+                    else:
+                        tags_text = func.lower(cast(Note.tags, Text))
+                        pattern = f'%{json.dumps(tag.lower(), ensure_ascii=False)}%'
+                    stmt = stmt.filter(tags_text.like(pattern))
 
                 view_option = filter.get('view_option')
                 if view_option == 'created':
@@ -302,6 +321,8 @@ class NoteTable:
                 note.data = {**note.data, **form_data['data']}
             if 'meta' in form_data:
                 note.meta = {**note.meta, **form_data['meta']}
+            if 'tags' in form_data:
+                note.tags = form_data['tags']
 
             if 'access_grants' in form_data:
                 await AccessGrants.set_access_grants('note', id, form_data['access_grants'], db=db)
@@ -320,6 +341,23 @@ class NoteTable:
                 return True
         except Exception:
             return False
+
+    async def get_tags(self, db: Optional[AsyncSession] = None) -> list[str]:
+        """Get all unique tags from notes the user can access."""
+        try:
+            async with get_async_db_context(db) as db:
+                # Get all notes
+                result = await db.execute(select(Note))
+                notes = result.scalars().all()
+                tags = set()
+                for note in notes:
+                    if note.tags:
+                        for tag in note.tags:
+                            if tag:
+                                tags.add(tag)
+                return sorted(list(tags))
+        except Exception:
+            return []
 
 
 Notes = NoteTable()

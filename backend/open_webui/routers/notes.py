@@ -104,10 +104,20 @@ async def get_notes(
     ]
 
 
+@router.get('/tags', response_model=list[str])
+async def get_note_tags(
+    user=Depends(get_verified_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Get all unique tags from notes."""
+    return await Notes.get_tags(db=db)
+
+
 @router.get('/search', response_model=NoteListResponse)
 async def search_notes(
     request: Request,
     query: Optional[str] = None,
+    tag: Optional[str] = None,
     view_option: Optional[str] = None,
     permission: Optional[str] = None,
     order_by: Optional[str] = None,
@@ -133,6 +143,8 @@ async def search_notes(
     filter = {}
     if query:
         filter['query'] = query
+    if tag:
+        filter['tag'] = tag
     if view_option:
         filter['view_option'] = view_option
     if permission:

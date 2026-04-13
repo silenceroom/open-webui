@@ -36,7 +36,8 @@
 		deleteNoteById,
 		getNoteById,
 		getNoteList,
-		searchNotes
+		searchNotes,
+		getNotesTags
 	} from '$lib/apis/notes';
 	import { capitalizeFirstLetter, copyToClipboard, getTimeRange } from '$lib/utils';
 	import { downloadPdf, createNoteHandler } from './utils';
@@ -53,6 +54,7 @@
 	import XMark from '../icons/XMark.svelte';
 	import DropdownOptions from '../common/DropdownOptions.svelte';
 	import Loader from '../common/Loader.svelte';
+	import TagSelector from '$lib/components/workspace/common/TagSelector.svelte';
 
 	let loaded = false;
 
@@ -72,6 +74,8 @@
 	let displayOption = null;
 	let viewOption = null;
 	let permission = null;
+	let selectedTag = '';
+	let tags = [];
 
 	let page = 1;
 
@@ -187,7 +191,13 @@
 		}, 300);
 	}
 
-	$: if (loaded && sortKey !== undefined && permission !== undefined && viewOption !== undefined) {
+	$: if (
+		loaded &&
+		sortKey !== undefined &&
+		permission !== undefined &&
+		viewOption !== undefined &&
+		selectedTag !== undefined
+	) {
 		init();
 	}
 
@@ -201,6 +211,7 @@
 		const res = await searchNotes(
 			localStorage.token,
 			query,
+			selectedTag,
 			viewOption,
 			permission,
 			sortKey,
@@ -213,6 +224,9 @@
 			console.log(res);
 			total = res.total;
 			const pageItems = res.items;
+
+			// Get tags
+			tags = await getNotesTags(localStorage.token).catch(() => []);
 
 			if ((pageItems ?? []).length === 0) {
 				allItemsLoaded = true;
@@ -435,6 +449,13 @@
 									{ value: null, label: $i18n.t('Write') },
 									{ value: 'read_only', label: $i18n.t('Read Only') }
 								]}
+							/>
+						{/if}
+
+						{#if (tags ?? []).length > 0}
+							<TagSelector
+								bind:value={selectedTag}
+								items={tags.map((tag) => ({ value: tag, label: tag }))}
 							/>
 						{/if}
 					</div>
