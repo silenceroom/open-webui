@@ -25,6 +25,7 @@
 	import { compressImage, copyToClipboard, splitStream, convertHeicToJpeg } from '$lib/utils';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import { getFileById, uploadFile } from '$lib/apis/files';
+	import { getNotesTags } from '$lib/apis/notes';
 	import { chatCompletion, generateOpenAIChatCompletion } from '$lib/apis/openai';
 
 	import {
@@ -93,6 +94,7 @@
 	import Sidebar from '../icons/Sidebar.svelte';
 	import ArrowRight from '../icons/ArrowRight.svelte';
 	import Cog6 from '../icons/Cog6.svelte';
+	import Tags from '../common/Tags.svelte';
 	import AiMenu from './AIMenu.svelte';
 	import AdjustmentsHorizontalOutline from '../icons/AdjustmentsHorizontalOutline.svelte';
 
@@ -114,6 +116,7 @@
 		},
 		// pages: [], // TODO: Implement pages for notes to allow users to create multiple pages in a note
 		meta: null,
+		tags: [],
 		access_grants: []
 	};
 
@@ -127,6 +130,7 @@
 		);
 
 	let files = [];
+	let tags = [];
 	let messages = [];
 
 	let wordCount = 0;
@@ -179,7 +183,13 @@
 			if (!Array.isArray(note?.access_grants)) {
 				note.access_grants = [];
 			}
+			if (!Array.isArray(note?.tags)) {
+				note.tags = [];
+			}
 			files = res.data.files || [];
+
+			// Load tags for suggestions
+			tags = await getNotesTags(localStorage.token).catch(() => []);
 
 			if (note?.write_access) {
 				$socket?.emit('join-note', {
@@ -211,6 +221,7 @@
 				data: {
 					files: files
 				},
+				tags: note?.tags ?? [],
 				access_grants: note?.access_grants ?? []
 			}).catch((e) => {
 				toast.error(`${e}`);
@@ -1112,6 +1123,24 @@ Provide the enhanced notes in markdown format. Use markdown syntax for headings,
 								{/if}
 							</div>
 						</div>
+					</div>
+
+					<!-- Tags row: between title toolbar and editor -->
+					<div class="px-3.5 py-2">
+						<Tags
+							tags={note?.tags?.map((tag) => ({ name: tag })) ?? []}
+							disabled={!note?.write_access}
+							suggestionTags={tags.map((tag) => ({ name: tag }))}
+							on:add={(e) => {
+								if (!note.tags) note.tags = [];
+								note.tags = [...note.tags, e.detail];
+								changeDebounceHandler();
+							}}
+							on:delete={(e) => {
+								note.tags = (note.tags ?? []).filter((tag) => tag !== e.detail);
+								changeDebounceHandler();
+							}}
+						/>
 					</div>
 
 					<div class="  px-2.5">
