@@ -147,6 +147,7 @@
 						}
 					},
 					meta: null,
+					tags: [],
 					access_grants: []
 				}).catch((error) => {
 					toast.error(`${error}`);
