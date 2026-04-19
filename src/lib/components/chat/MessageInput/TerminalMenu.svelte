@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 
 	import { settings, showSettings, terminalServers, selectedTerminalId, user } from '$lib/stores';
-	import { getToolServersData } from '$lib/apis';
 
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -14,67 +13,15 @@
 	export let show = false;
 
 	$: systemTerminals = ($terminalServers ?? []).filter((t) => t.id);
-	$: directTerminals = ($settings?.terminalServers ?? []).filter((s) => s.url);
+	$: directTerminals = ($settings?.terminalServers ?? []).filter((s) => s.url && s.enabled);
 
-	const refreshTerminalServersStore = async (servers: typeof directTerminals) => {
-		// Preserve system terminals (those with an `id`) — only refresh direct ones
-		const existingSystemTerminals = ($terminalServers ?? []).filter((t) => t.id);
-
-		const activeTerminals = servers.filter((s) => s.enabled);
-		if (activeTerminals.length > 0) {
-			let data = await getToolServersData(
-				activeTerminals.map((t) => ({
-					url: t.url,
-					auth_type: t.auth_type ?? 'bearer',
-					key: t.key ?? '',
-					path: t.path ?? '/openapi.json',
-					config: { enable: true }
-				}))
-			);
-			data = data.filter((d) => d && !d.error);
-			terminalServers.set([...data, ...existingSystemTerminals]);
-		} else {
-			terminalServers.set(existingSystemTerminals);
-		}
-	};
-
-	const selectDirect = async (terminal: (typeof directTerminals)[0]) => {
-		const newId = $selectedTerminalId === terminal.url ? null : terminal.url;
-		selectedTerminalId.set(newId);
-
-		// Enable the selected direct terminal, disable all others
-		const updatedServers = ($settings?.terminalServers ?? []).map((s) => ({
-			...s,
-			enabled: newId !== null && s.url === terminal.url
-		}));
-
-		settings.set({
-			...$settings,
-			terminalServers: updatedServers
-		});
-
+	const selectDirect = (terminal: (typeof directTerminals)[0]) => {
+		selectedTerminalId.set($selectedTerminalId === terminal.url ? null : terminal.url);
 		show = false;
-
-		// Refresh the store so Chat.svelte can inject it as a tool
-		await refreshTerminalServersStore(updatedServers);
 	};
 
-	const selectSystem = async (terminal: (typeof systemTerminals)[0]) => {
+	const selectSystem = (terminal: (typeof systemTerminals)[0]) => {
 		selectedTerminalId.set($selectedTerminalId === terminal.id ? null : terminal.id);
-
-		// Disable all direct terminals when switching to a system terminal
-		if ($settings?.terminalServers?.some((s) => s.enabled)) {
-			const updatedServers = ($settings.terminalServers ?? []).map((s) => ({
-				...s,
-				enabled: false
-			}));
-			settings.set({
-				...$settings,
-				terminalServers: updatedServers
-			});
-			await refreshTerminalServersStore(updatedServers);
-		}
-
 		show = false;
 	};
 

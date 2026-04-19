@@ -6,7 +6,7 @@
 	const dispatch = createEventDispatcher();
 	const i18n = getContext('i18n');
 
-	import { settings, toolServers, terminalServers } from '$lib/stores';
+	import { settings, toolServers, terminalServers, selectedTerminalId } from '$lib/stores';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -28,12 +28,25 @@
 	};
 
 	const updateHandler = async () => {
+		// Clear selectedTerminalId if the selected direct terminal is deleted or disabled
+		// (System terminals are not affected by settings changes)
+		const currentSelectedId = $selectedTerminalId;
+		if (currentSelectedId) {
+			const isDirectTerminal = terminalServerConfigs.some((s) => s.url === currentSelectedId);
+			if (isDirectTerminal) {
+				const selectedConfig = terminalServerConfigs.find((s) => s.url === currentSelectedId);
+				if (!selectedConfig.enabled) {
+					selectedTerminalId.set(null);
+				}
+			}
+		}
+
 		await saveSettings({
 			toolServers: servers,
 			terminalServers: terminalServerConfigs
 		});
 
-		let toolServersData = await getToolServersData($settings?.toolServers ?? []);
+		let toolServersData = await getToolServersData(servers ?? []);
 		toolServersData = toolServersData.filter((data) => {
 			if (data.error) {
 				toast.error(
